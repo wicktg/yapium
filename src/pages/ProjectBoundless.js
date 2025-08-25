@@ -51,7 +51,7 @@ export default function ProjectBoundless() {
       setStatus({ loading: true, error: null });
       try {
         const res = await fetch(
-          `https://gomtu.xyz/api/kaito/leaderboard-search?username=${encodeURIComponent(
+          `/api/kaito/leaderboard-search?username=${encodeURIComponent(
             username
           )}`
         );
@@ -330,9 +330,7 @@ function CompareModal({ onClose, topicId, baseUser }) {
 
   async function computeForUser(u) {
     const res = await fetch(
-      `https://gomtu.xyz/api/kaito/leaderboard-search?username=${encodeURIComponent(
-        u
-      )}`
+      `/api/kaito/leaderboard-search?username=${encodeURIComponent(u)}`
     );
     if (!res.ok) throw new Error("Network error");
     const json = await res.json();
