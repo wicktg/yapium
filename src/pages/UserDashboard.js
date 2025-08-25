@@ -24,12 +24,7 @@ const PROJECTS = [
   { name: "Monad", logo: monadLogo, slug: "monad", status: "open" },
   { name: "Billions", logo: billionsLogo, slug: "billions", status: "open" },
   { name: "Boundless", logo: boundlessLogo, slug: "boundless", status: "open" },
-  {
-    name: "Portal to BTC",
-    logo: ptblogo,
-    slug: "portaltobtc",
-    status: "open",
-  },
+  { name: "Portal to BTC", logo: ptblogo, slug: "portaltobtc", status: "open" },
   { name: "Cysic", logo: cysicLogo, slug: "cysic", status: "open" },
   { name: "Abstract", logo: abstractLogo, slug: "abstract", status: "close" },
   { name: "Lombard", logo: lombardLogo, slug: "lombard", status: "close" },
@@ -54,13 +49,17 @@ export default function UserDashboard() {
     async function fetchAll() {
       setStatus({ loading: true, error: null });
       try {
+        // ✅ use the user_status proxy here (NOT leaderboard-search)
         const [statusRes, yapsRes] = await Promise.all([
           fetch(
-            `/api/kaito/leaderboard-search?username=${encodeURIComponent(
-              username
-            )}`
+            `/api/kaito/user_status?username=${encodeURIComponent(username)}`,
+            {
+              cache: "no-store",
+            }
           ),
-          fetch(`/api/yap/open?username=${encodeURIComponent(username)}`),
+          fetch(`/api/yap/open?username=${encodeURIComponent(username)}`, {
+            cache: "no-store",
+          }),
         ]);
 
         if (!statusRes.ok || !yapsRes.ok) {
@@ -89,10 +88,21 @@ export default function UserDashboard() {
     };
   }, [username]);
 
-  const followerCount = userStatus?.follower_count ?? 0;
-  const smartFollowerCount = userStatus?.smart_follower_count ?? 0;
-  const totalYaps = yaps?.yaps_all ?? 0;
-  const yaps24h = yaps?.yaps_l24h ?? 0;
+  // Be tolerant to different field shapes just in case.
+  const followerCount =
+    userStatus?.follower_count ??
+    userStatus?.followers ??
+    userStatus?.followerCount ??
+    0;
+
+  const smartFollowerCount =
+    userStatus?.smart_follower_count ??
+    userStatus?.smart_followers ??
+    userStatus?.smartFollowerCount ??
+    0;
+
+  const totalYaps = yaps?.yaps_all ?? yaps?.total ?? 0;
+  const yaps24h = yaps?.yaps_l24h ?? yaps?.last24h ?? 0;
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#0B0F14] text-[#E6EAF2]">
@@ -266,7 +276,6 @@ function ProjectItem({ project, username }) {
     .slice(0, 2)
     .toUpperCase();
 
-  // Routes for open projects
   const target = isOpen
     ? `/p/${slug}/${encodeURIComponent(username)}`
     : undefined;
@@ -317,7 +326,6 @@ function ProjectItem({ project, username }) {
     </div>
   );
 
-  // Wrap card with Link only if open
   return isOpen ? <Link to={target}>{Card}</Link> : <div>{Card}</div>;
 }
 
