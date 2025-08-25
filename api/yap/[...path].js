@@ -1,53 +1,28 @@
 export default async function handler(req, res) {
-  const { path = [] } = req.query;
-  const search = req.url.includes("?")
-    ? req.url.slice(req.url.indexOf("?"))
-    : "";
-  const target = `https://gomtu.xyz/api/yap/${
-    Array.isArray(path) ? path.join("/") : path
-  }${search}`;
-
   try {
-    const upstream = await fetch(target, {
+    const { path = [] } = req.query; // e.g. ["open"]
+    const subpath = Array.isArray(path) ? path.join("/") : String(path || "");
+    const url = `https://gomtu.xyz/api/yap/${subpath}${
+      req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""
+    }`;
+
+    const upstream = await fetch(url, {
       method: req.method,
       headers: {
-        "content-type": req.headers["content-type"] || undefined,
-        authorization: req.headers["authorization"] || undefined,
+        "content-type": req.headers["content-type"] || "application/json",
       },
-      body: ["GET", "HEAD"].includes(req.method) ? undefined : req,
+      body:
+        req.method !== "GET" && req.method !== "HEAD" ? req.body : undefined,
+      cache: "no-store",
     });
 
-    res.status(upstream.status);
-    upstream.headers.forEach((val, key) => {
-      if (
-        !["content-encoding", "transfer-encoding", "connection"].includes(
-          key.toLowerCase()
-        )
-      ) {
-        res.setHeader(key, val);
-      }
-    });
+    const contentType =
+      upstream.headers.get("content-type") || "application/json";
+    const text = await upstream.text();
 
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader(
-      "Access-Control-Allow-Methods",
-      "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-    );
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization"
-    );
-
-    if (req.method === "OPTIONS") {
-      res.status(204).end();
-      return;
-    }
-
-    const buf = Buffer.from(await upstream.arrayBuffer());
-    res.end(buf);
+    res.setHeader("content-type", contentType);
+    res.status(upstream.status).send(text);
   } catch (err) {
-    res
-      .status(502)
-      .json({ error: "Upstream proxy failed", detail: String(err) });
+    res.status(500).json({ error: "Proxy error", detail: String(err) });
   }
 }

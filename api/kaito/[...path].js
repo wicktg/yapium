@@ -1,54 +1,30 @@
 export default async function handler(req, res) {
-  const { path = [] } = req.query;
-  const search = req.url.includes("?")
-    ? req.url.slice(req.url.indexOf("?"))
-    : "";
-  const target = `https://gomtu.xyz/api/kaito/${
-    Array.isArray(path) ? path.join("/") : path
-  }${search}`;
-
   try {
-    const upstream = await fetch(target, {
+    const { path = [] } = req.query; // e.g. ["user_status"]
+    const subpath = Array.isArray(path) ? path.join("/") : String(path || "");
+    const url = `https://gomtu.xyz/api/kaito/${subpath}${
+      req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""
+    }`;
+
+    const upstream = await fetch(url, {
       method: req.method,
       headers: {
-        "content-type": req.headers["content-type"] || undefined,
-        authorization: req.headers["authorization"] || undefined,
+        // Forward only safe headers
+        "content-type": req.headers["content-type"] || "application/json",
       },
-      body: ["GET", "HEAD"].includes(req.method) ? undefined : req,
+      body:
+        req.method !== "GET" && req.method !== "HEAD" ? req.body : undefined,
+      // avoids caching weirdness while debugging
+      cache: "no-store",
     });
 
-    res.status(upstream.status);
-    upstream.headers.forEach((val, key) => {
-      if (
-        !["content-encoding", "transfer-encoding", "connection"].includes(
-          key.toLowerCase()
-        )
-      ) {
-        res.setHeader(key, val);
-      }
-    });
+    const contentType =
+      upstream.headers.get("content-type") || "application/json";
+    const text = await upstream.text();
 
-    // Allow from your site (safe because browser calls your own origin)
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader(
-      "Access-Control-Allow-Methods",
-      "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-    );
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization"
-    );
-
-    if (req.method === "OPTIONS") {
-      res.status(204).end();
-      return;
-    }
-
-    const buf = Buffer.from(await upstream.arrayBuffer());
-    res.end(buf);
+    res.setHeader("content-type", contentType);
+    res.status(upstream.status).send(text);
   } catch (err) {
-    res
-      .status(502)
-      .json({ error: "Upstream proxy failed", detail: String(err) });
+    res.status(500).json({ error: "Proxy error", detail: String(err) });
   }
 }
