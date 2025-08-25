@@ -502,16 +502,6 @@ function CompareModal({ onClose, topicId, baseUser }) {
                     title="Fren"
                   />
                 </div>
-                <div className="mt-2 flex justify-between text-xs text-white/80">
-                  <span>
-                    You: <b>{formatMoney(you?.worth ?? 0, 2)}</b> (
-                    {Math.round(youPct * 100)}%)
-                  </span>
-                  <span>
-                    Fren: <b>{formatMoney(friend?.worth ?? 0, 2)}</b> (
-                    {Math.round(frenPct * 100)}%)
-                  </span>
-                </div>
 
                 {/* Leader line */}
                 <div className="mt-3 text-xs text-white/70">
