@@ -15,7 +15,7 @@ import { ArrowLeft, Zap, Info, X } from "lucide-react";
 
 const TOTAL_SUPPLY = 10_000_000_000; // 10B
 const REWARD_POOL = 75_000_000; // 75M U
-const GLOBAL_TOTAL_SCORE = 425; // assumed global combined score
+const GLOBAL_TOTAL_SCORE = 400; // assumed global combined score
 
 // Time weights: 3M > 30D > 7D > 6M
 const TIME_WEIGHTS = { "3M": 1.0, "30D": 0.85, "7D": 0.7, "6M": 0.5 };
@@ -236,7 +236,7 @@ export default function ProjectUnion() {
               />
               <div className="mt-2 flex justify-between text-xs text-white/60">
                 <span>$0</span>
-                <span>$1B</span>
+
                 <span>$5B</span>
               </div>
             </div>

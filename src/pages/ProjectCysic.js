@@ -18,7 +18,7 @@ import { ArrowLeft, Zap, Info, X } from "lucide-react";
 
 const TOTAL_SUPPLY = 1_000_000_000; // 1B
 const REWARD_POOL = 6_000_000; // 6M CYS
-const GLOBAL_MINDSHARE = 500; // assumed
+const GLOBAL_MINDSHARE = 370; // assumed
 
 // Time weights (3M > 30D > 6M)
 const TIME_WEIGHTS = { "3M": 1.0, "30D": 0.8, "6M": 0.5 };
@@ -243,7 +243,7 @@ export default function ProjectCysic() {
               />
               <div className="mt-2 flex justify-between text-xs text-white/60">
                 <span>$0</span>
-                <span>$1B</span>
+
                 <span>$5B</span>
               </div>
             </div>

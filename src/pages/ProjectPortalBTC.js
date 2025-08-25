@@ -240,7 +240,7 @@ export default function ProjectPortalBTC() {
               />
               <div className="mt-2 flex justify-between text-xs text-white/60">
                 <span>$0</span>
-                <span>$1B</span>
+               
                 <span>$5B</span>
               </div>
             </div>
