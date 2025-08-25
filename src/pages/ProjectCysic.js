@@ -10,19 +10,19 @@ import { ArrowLeft, Zap, Info, X } from "lucide-react";
  * - Rewards pool: 6,000,000 $CYS
  * - Time weighting: 3M > 30D > 6M
  * - Leaderboard weighting: Creator (tier1) > Community (tier2)
- * - Eligibility:
- *    • If any positive mindshare exists: eligible when present on any included board
- *    • Else (mindshare null/0): rank fallback with lighter weight; eligible if present and fallback score > 0
+ * - Eligibility: appear on leaderboard (rank ≤ 1000) AND positive score
+ *   • Prefer mindshare (if present across any entry)
+ *   • If ALL mindshare are null → fallback to rank (lighter, via penalty)
  * - FDV slider: $0 → $5B, price = FDV / totalSupply
  */
 
 const TOTAL_SUPPLY = 1_000_000_000; // 1B
 const REWARD_POOL = 6_000_000; // 6M CYS
-const GLOBAL_MINDSHARE = 500; // same assumption as IRYS/MONAD
+const GLOBAL_MINDSHARE = 500; // assumed
 
 // Time weights (3M > 30D > 6M)
 const TIME_WEIGHTS = { "3M": 1.0, "30D": 0.8, "6M": 0.5 };
-// Leaderboard weights (no "specific")
+// Leaderboard weights
 const TIER_WEIGHTS = { tier1: 1.0, tier2: 0.7 };
 // Included durations
 const INCLUDED_DURATIONS = new Set(["3M", "30D", "6M"]);
@@ -43,6 +43,7 @@ export default function ProjectCysic() {
   const [entries, setEntries] = useState([]);
   const [fdv, setFdv] = useState(1_000_000_000); // default $1B
   const [showCard, setShowCard] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,21 +83,20 @@ export default function ProjectCysic() {
     };
   }, [username]);
 
-  // Weighted score with mindshare preferred, rank as fallback
-  const { weightedScore, usedMindshare, eligible, bestRank } = useMemo(() => {
+  // Weighted score with mindshare preferred, rank as fallback.
+  // Eligibility requires: appears on leaderboard (rank ≤ 1000) AND final score > 0.
+  const { weightedScore, eligible, bestRank } = useMemo(() => {
     if (!entries.length)
-      return {
-        weightedScore: 0,
-        usedMindshare: false,
-        eligible: false,
-        bestRank: null,
-      };
+      return { weightedScore: 0, eligible: false, bestRank: null };
 
-    let minRank = Infinity;
+    const appearsOnLeaderboard = entries.some(
+      (e) => Number.isFinite(e?.rank) && e.rank <= 1000
+    );
 
-    // First pass: check mindshare
     let wm = 0;
-    let sawPositiveMindshare = false;
+    let wr = 0;
+    let sawMindshare = false;
+    let minRank = Infinity;
 
     for (const e of entries) {
       const duration = e?.duration;
@@ -108,50 +108,32 @@ export default function ProjectCysic() {
       const tWeight = TIME_WEIGHTS[duration] ?? 0;
       const tierWeight = TIER_WEIGHTS[tier] ?? 0;
 
-      if (ms !== null && ms > 0) {
-        sawPositiveMindshare = true;
+      if (ms !== null) {
+        sawMindshare = true;
         wm += ms * tWeight * tierWeight;
       }
+      // wr always collected; only used if all mindshare are missing
+      wr += rankToUnitScore(rank) * tWeight * tierWeight;
+
       if (rank < minRank) minRank = rank;
     }
 
-    if (sawPositiveMindshare && wm > 0) {
-      return {
-        weightedScore: wm,
-        usedMindshare: true,
-        eligible: entries.length > 0, // present on any board
-        bestRank: isFinite(minRank) ? minRank : null,
-      };
-    }
-
-    // Fallback: rank-based score (lighter weight via penalty)
-    let wr = 0;
-    for (const e of entries) {
-      const duration = e?.duration;
-      const tier = (e?.tier || "").toLowerCase();
-      const rank = typeof e?.rank === "number" ? e.rank : Infinity;
-
-      const tWeight = TIME_WEIGHTS[duration] ?? 0;
-      const tierWeight = TIER_WEIGHTS[tier] ?? 0;
-      const unit = rankToUnitScore(rank);
-
-      wr += unit * tWeight * tierWeight;
-    }
-    wr *= RANK_PENALTY;
+    const finalScore = sawMindshare && wm > 0 ? wm : wr * RANK_PENALTY;
+    const isEligible = appearsOnLeaderboard && finalScore > 0;
 
     return {
-      weightedScore: wr,
-      usedMindshare: false,
-      eligible: entries.length > 0 && wr > 0,
-      bestRank: isFinite(minRank) ? minRank : null,
+      weightedScore: finalScore,
+      eligible: isEligible,
+      bestRank: Number.isFinite(minRank) ? minRank : null,
     };
   }, [entries]);
 
-  // Rewards + pricing
+  // Rewards + pricing (zero if not eligible)
   const tokensAwarded = useMemo(() => {
+    if (!eligible) return 0;
     if (!weightedScore || GLOBAL_MINDSHARE <= 0) return 0;
     return Math.max(0, REWARD_POOL * (weightedScore / GLOBAL_MINDSHARE));
-  }, [weightedScore]);
+  }, [eligible, weightedScore]);
 
   const tokenPrice = useMemo(() => (fdv > 0 ? fdv / TOTAL_SUPPLY : 0), [fdv]);
   const rewardWorthUSD = useMemo(
@@ -201,7 +183,7 @@ export default function ProjectCysic() {
       </header>
 
       <section className="relative z-10 mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 pb-14 pt-4 md:pt-6 lg:grid-cols-10">
-        {/* LEFT: Eligibility + Rewards (~60%) */}
+        {/* LEFT: Eligibility + Rewards */}
         <div className="lg:col-span-6 space-y-4">
           <GlassPanel highlight="orange">
             <div className="flex items-start justify-between gap-4">
@@ -246,8 +228,6 @@ export default function ProjectCysic() {
                   Drag to simulate token price and reward value.
                 </p>
               </div>
-
-              
             </div>
 
             <div className={`mt-4 ${sliderDisabled ? "opacity-50" : ""}`}>
@@ -277,10 +257,18 @@ export default function ProjectCysic() {
             >
               Generate Card
             </NeonButton>
+
+            <NeonButton
+              onClick={() => setShowCompare(true)}
+              disabled={!eligible}
+              className={!eligible ? "opacity-60 cursor-not-allowed" : ""}
+            >
+              Compare with Fren
+            </NeonButton>
           </div>
         </div>
 
-        {/* RIGHT: How are the rewards calculated? (~40%) */}
+        {/* RIGHT: How are the rewards calculated? */}
         <div className="lg:col-span-4 space-y-4">
           <GlassPanel>
             <div className="mb-2 flex items-center gap-2">
@@ -308,15 +296,15 @@ export default function ProjectCysic() {
                 <b>Creator</b> &gt; <b>Community</b>.
               </li>
               <li>
-                <span className="text-white/80">Distribution:</span> Your{" "}
-                <b>weighted mindshare</b> determines your share of the pool.
+                <span className="text-white/80">Distribution:</span> Mindshare
+                first; rank fallback with penalty.
               </li>
             </ul>
           </GlassPanel>
         </div>
       </section>
 
-      {/* Card Modal */}
+      {/* Modals */}
       {showCard && (
         <CardModal
           onClose={() => setShowCard(false)}
@@ -327,7 +315,234 @@ export default function ProjectCysic() {
           tagline={tagline}
         />
       )}
+      {showCompare && (
+        <CompareModal
+          onClose={() => setShowCompare(false)}
+          topicId="CYSIC"
+          baseUser={{ username, fdv }}
+        />
+      )}
     </main>
+  );
+}
+
+/* ——— Compare Modal ——— */
+
+function CompareModal({ onClose, topicId, baseUser }) {
+  const [fren, setFren] = useState("");
+  const [state, setState] = useState({
+    loading: false,
+    error: null,
+    you: null,
+    fren: null,
+  });
+
+  async function computeForUser(u) {
+    const res = await fetch(
+      `/api/kaito/leaderboard-search?username=${encodeURIComponent(u)}`
+    );
+    if (!res.ok) throw new Error("Network error");
+    const json = await res.json();
+    const data = Array.isArray(json?.data) ? json.data : [];
+
+    const filtered = data.filter(
+      (d) => d?.topic_id === topicId && INCLUDED_DURATIONS.has(d?.duration)
+    );
+
+    const appearsOnLeaderboard = filtered.some(
+      (e) => Number.isFinite(e?.rank) && e.rank <= 1000
+    );
+
+    let wm = 0;
+    let wr = 0;
+    let sawMS = false;
+
+    for (const e of filtered) {
+      const duration = e?.duration;
+      const tier = (e?.tier || "").toLowerCase();
+      const ms =
+        typeof e?.mindshare === "number" ? Math.max(0, e.mindshare) : null;
+      const rank = typeof e?.rank === "number" ? e.rank : Infinity;
+
+      const tWeight = TIME_WEIGHTS[duration] ?? 0;
+      const tierWeight = TIER_WEIGHTS[tier] ?? 0;
+
+      if (ms !== null) {
+        sawMS = true;
+        wm += ms * tWeight * tierWeight;
+      }
+      wr += rankToUnitScore(rank) * tWeight * tierWeight;
+    }
+
+    const finalScore = sawMS && wm > 0 ? wm : wr * RANK_PENALTY;
+    const eligible = appearsOnLeaderboard && finalScore > 0;
+
+    const tokens =
+      eligible && finalScore && GLOBAL_MINDSHARE > 0
+        ? Math.max(0, REWARD_POOL * (finalScore / GLOBAL_MINDSHARE))
+        : 0;
+
+    const price = baseUser.fdv > 0 ? baseUser.fdv / TOTAL_SUPPLY : 0;
+    const worth = tokens * price;
+
+    return {
+      username: u.replace(/^@/, ""),
+      tokens,
+      worth,
+      eligible,
+    };
+  }
+
+  async function handleCompare() {
+    try {
+      setState((s) => ({ ...s, loading: true, error: null }));
+      const me = await computeForUser(baseUser.username);
+      const fr = fren.trim() ? await computeForUser(fren.trim()) : null;
+      setState({ loading: false, error: null, you: me, fren: fr });
+    } catch (e) {
+      setState({
+        loading: false,
+        error: "Failed to fetch comparison",
+        you: null,
+        fren: null,
+      });
+    }
+  }
+
+  const you = state.you;
+  const friend = state.fren;
+  const totalWorth = (you?.worth || 0) + (friend?.worth || 0);
+  const youPct = totalWorth > 0 ? (you?.worth || 0) / totalWorth : 0.5;
+  const frenPct = 1 - youPct;
+  const leaderHandle =
+    (you &&
+      friend &&
+      (you.worth >= (friend.worth || 0) ? you.username : friend.username)) ||
+    (you ? you.username : friend?.username);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative z-10 w-full max-w-2xl rounded-2xl ring-1 ring-white/10 bg-[#0B0F14] overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="text-sm text-white/80 font-medium">
+            Compare with Fren • CYSIC
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="px-5 pb-5">
+          {/* Input row */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={fren}
+              onChange={(e) => setFren(e.target.value)}
+              placeholder="Enter friend's @username"
+              className="flex-1 rounded-lg bg-white/10 text-white px-3 py-2 text-sm ring-1 ring-white/10 focus:outline-none focus:ring-white/20"
+            />
+            <NeonButton onClick={handleCompare}>
+              {state.loading ? "Comparing..." : "Compare"}
+            </NeonButton>
+          </div>
+
+          {(you || friend) && (
+            <>
+              {/* SxS cards */}
+              <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <GlassPanel highlight="orange">
+                  <div className="text-sm font-semibold">
+                    @{you?.username || baseUser.username}
+                  </div>
+                  <div className="mt-2 text-sm">
+                    Tokens: <b>{formatQty(you?.tokens ?? 0, 2)} $CYS</b>
+                  </div>
+                  <div className="text-sm">
+                    Worth: <b>{formatMoney(you?.worth ?? 0, 2)}</b>
+                  </div>
+                  {!you?.eligible && (
+                    <div className="mt-2 text-xs text-white/50">
+                      Not eligible — no rewards at this time.
+                    </div>
+                  )}
+                </GlassPanel>
+
+                <GlassPanel>
+                  <div className="text-sm font-semibold">
+                    @
+                    {friend?.username ||
+                      (fren?.trim() ? fren.replace(/^@/, "") : "—")}
+                  </div>
+                  <div className="mt-2 text-sm">
+                    Tokens: <b>{formatQty(friend?.tokens ?? 0, 2)} $CYS</b>
+                  </div>
+                  <div className="text-sm">
+                    Worth: <b>{formatMoney(friend?.worth ?? 0, 2)}</b>
+                  </div>
+                  {friend && !friend.eligible && (
+                    <div className="mt-2 text-xs text-white/50">
+                      Not eligible — no rewards at this time.
+                    </div>
+                  )}
+                </GlassPanel>
+              </div>
+
+              {/* Head-to-head bar */}
+              <div className="mt-5">
+                <div className="text-xs text-white/60 mb-2">
+                  Head-to-head (by $ worth)
+                </div>
+                <div className="w-full h-3 rounded-full bg-white/5 ring-1 ring-white/10 overflow-hidden flex">
+                  <div
+                    className="h-full bg-[#FF7A29] transition-all duration-700"
+                    style={{ width: `${youPct * 100}%` }}
+                    title="You"
+                  />
+                  <div
+                    className="h-full bg-[#22C55E] transition-all duration-700"
+                    style={{ width: `${frenPct * 100}%` }}
+                    title="Fren"
+                  />
+                </div>
+                <div className="mt-2 flex justify-between text-xs text-white/80">
+                  <span>
+                    You: <b>{formatMoney(you?.worth ?? 0, 2)}</b> (
+                    {Math.round(youPct * 100)}%)
+                  </span>
+                  <span>
+                    Fren: <b>{formatMoney(friend?.worth ?? 0, 2)}</b> (
+                    {Math.round(frenPct * 100)}%)
+                  </span>
+                </div>
+
+                {/* Leader line */}
+                <div className="mt-3 text-xs text-white/70">
+                  Leader:{" "}
+                  <span className="font-semibold">@{leaderHandle || "—"}</span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {!you && !friend && !state.loading && (
+            <div className="mt-6 text-center text-sm text-white/60">
+              Enter a friend’s username and hit <b>Compare</b>.
+            </div>
+          )}
+
+          {state.error && (
+            <div className="mt-4 text-center text-[#EF4444] text-sm">
+              {state.error}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -619,7 +834,7 @@ function NeonButton({ children, className = "", ...props }) {
       className={
         "relative inline-flex items-center justify-center gap-1 rounded-xl px-4 py-2 text-sm font-medium tracking-wide transition-transform will-change-transform " +
         (disabled
-          ? "bg-[#FF7A29] text-black cursor-not-allowed "
+          ? "bg-[#FF7A29] text:black cursor-not-allowed "
           : "bg-[#FF7A29] text-black hover:scale-[1.02] active:scale-[0.99] ") +
         "shadow-[0_0_24px_rgba(255,122,41,0.5)] " +
         className
