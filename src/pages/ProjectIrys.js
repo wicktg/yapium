@@ -186,7 +186,7 @@ export default function ProjectIrys() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-medium tracking-wide text-white/80">
-                  FDV Simulator
+                  FDV
                 </h3>
                 <p className="mt-1 text-sm text-white/60">
                   Drag to simulate token price and reward value.
@@ -261,8 +261,7 @@ export default function ProjectIrys() {
               </li>
               <li>
                 <span className="text-white/80">Leaderboard Weightage:</span>{" "}
-                <b>Specific leaderboard</b> &gt; <b>Community leaderboard</b>{" "}
-                &gt; <b>Creator leaderboard</b>.
+                <b>Specific</b> &gt; <b>Community</b> &gt; <b>Creator</b>.
               </li>
               <li>
                 <span className="text-white/80">Distribution:</span> Your{" "}

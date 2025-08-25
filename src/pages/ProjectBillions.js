@@ -211,7 +211,7 @@ export default function ProjectBillions() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-medium tracking-wide text-white/80">
-                  FDV Simulator
+                  FDV
                 </h3>
                 <p className="mt-1 text-sm text-white/60">
                   Drag to simulate token price and reward value.
@@ -286,8 +286,8 @@ export default function ProjectBillions() {
                 <b>Creator</b> &gt; <b>Community</b>
               </li>
               <li>
-                <span className="text-white/80">Distribution:</span> Mindshare
-                first; rank fallback with penalty.
+                <span className="text-white/80">Distribution:</span> Your{" "}
+                <b>weighted mindshare</b> determines your share of the pool.
               </li>
             </ul>
           </GlassPanel>
@@ -400,7 +400,12 @@ function CompareModal({ onClose, topicId, baseUser }) {
       const { me, fr } = await loadBoth();
       setState({ loading: false, error: null, you: me, fren: fr });
     } catch (e) {
-      setState({ loading: false, error: "Failed to fetch comparison", you: null, fren: null });
+      setState({
+        loading: false,
+        error: "Failed to fetch comparison",
+        you: null,
+        fren: null,
+      });
     }
   }
 
@@ -412,10 +417,15 @@ function CompareModal({ onClose, topicId, baseUser }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <div className="relative z-10 w-full max-w-2xl rounded-2xl ring-1 ring-white/10 bg-[#0B0F14] overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3">
-          <div className="text-sm text-white/80 font-medium">Compare with Fren • BILLIONS</div>
+          <div className="text-sm text-white/80 font-medium">
+            Compare with Fren • BILLIONS
+          </div>
           <button onClick={onClose} className="text-white/70 hover:text-white">
             <X className="h-5 w-5" />
           </button>
@@ -445,7 +455,9 @@ function CompareModal({ onClose, topicId, baseUser }) {
                   <div className="text-[11px] uppercase tracking-wider text-white/60">
                     You
                   </div>
-                  <div className="text-sm font-semibold">@{you?.username || baseUser.username}</div>
+                  <div className="text-sm font-semibold">
+                    @{you?.username || baseUser.username}
+                  </div>
                   <div className="mt-2 text-sm">
                     Tokens: <b>{formatQty(you?.tokens ?? 0, 2)} $BLNS</b>
                   </div>
@@ -459,7 +471,9 @@ function CompareModal({ onClose, topicId, baseUser }) {
                     Fren
                   </div>
                   <div className="text-sm font-semibold">
-                    @{friend?.username || (fren?.trim() ? fren.replace(/^@/, "") : "—")}
+                    @
+                    {friend?.username ||
+                      (fren?.trim() ? fren.replace(/^@/, "") : "—")}
                   </div>
                   <div className="mt-2 text-sm">
                     Tokens: <b>{formatQty(friend?.tokens ?? 0, 2)} $BLNS</b>
@@ -472,7 +486,9 @@ function CompareModal({ onClose, topicId, baseUser }) {
 
               {/* Head-to-head bar */}
               <div className="mt-5">
-                <div className="text-xs text-white/60 mb-2">Head-to-head (by worth at current FDV)</div>
+                <div className="text-xs text-white/60 mb-2">
+                  Head-to-head (by worth at current FDV)
+                </div>
                 <div className="w-full h-3 rounded-full bg-white/5 ring-1 ring-white/10 overflow-hidden">
                   <div
                     className="h-full bg-[#FF7A29] transition-all duration-700"
@@ -482,23 +498,27 @@ function CompareModal({ onClose, topicId, baseUser }) {
                 </div>
                 <div className="mt-2 flex justify-between text-xs">
                   <span className="text-white/80">
-                    You: <b>{formatMoney(you?.worth ?? 0, 2)}</b> ({Math.round(youPct * 100)}%)
+                    You: <b>{formatMoney(you?.worth ?? 0, 2)}</b> (
+                    {Math.round(youPct * 100)}%)
                   </span>
                   <span className="text-white/80">
-                    Fren: <b>{formatMoney(friend?.worth ?? 0, 2)}</b> ({Math.round(frenPct * 100)}%)
+                    Fren: <b>{formatMoney(friend?.worth ?? 0, 2)}</b> (
+                    {Math.round(frenPct * 100)}%)
                   </span>
                 </div>
               </div>
 
               {/* Delta badge */}
               <div className="mt-3 text-center text-sm">
-                {((you?.worth ?? 0) - (friend?.worth ?? 0)) >= 0 ? (
+                {(you?.worth ?? 0) - (friend?.worth ?? 0) >= 0 ? (
                   <span className="inline-flex items-center gap-2 rounded-full bg-[#22C55E]/10 text-[#22C55E] ring-1 ring-white/10 px-3 py-1">
-                    You’re ahead by {formatMoney((you?.worth ?? 0) - (friend?.worth ?? 0), 2)}
+                    You’re ahead by{" "}
+                    {formatMoney((you?.worth ?? 0) - (friend?.worth ?? 0), 2)}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-2 rounded-full bg-[#EF4444]/10 text-[#EF4444] ring-1 ring-white/10 px-3 py-1">
-                    Behind by {formatMoney((friend?.worth ?? 0) - (you?.worth ?? 0), 2)}
+                    Behind by{" "}
+                    {formatMoney((friend?.worth ?? 0) - (you?.worth ?? 0), 2)}
                   </span>
                 )}
               </div>
@@ -558,7 +578,10 @@ function CardModal({ onClose, username, tokens, worth, fdv, tagline }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <div className="relative z-10 w-full max-w-2xl rounded-2xl ring-1 ring-white/10 bg-[#0B0F14] overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="text-sm text-white/70">Share Card Preview</div>

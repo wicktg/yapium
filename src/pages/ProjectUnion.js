@@ -215,7 +215,7 @@ export default function ProjectUnion() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-medium tracking-wide text.white/80">
-                  FDV Simulator
+                  FDV
                 </h3>
                 <p className="mt-1 text-sm text-white/60">
                   Drag to simulate token price and reward value.
@@ -282,17 +282,16 @@ export default function ProjectUnion() {
                 <b>75,000,000 $U</b>.
               </li>
               <li>
-                <span className="text-white/80">Timeframe Priority:</span>{" "}
+                <span className="text-white/80">Timeframe Weightage:</span>{" "}
                 <b>3M</b> &gt; <b>30D</b> &gt; <b>7D</b> &gt; <b>6M</b>.
               </li>
               <li>
-                <span className="text-white/80">Leaderboard Priority:</span>{" "}
+                <span className="text-white/80">Leaderboard Weightage:</span>{" "}
                 <b>Specific</b> &gt; <b>Community</b> &gt; <b>Creator</b>.
               </li>
               <li>
                 <span className="text-white/80">Distribution:</span> Your{" "}
-                <b>weighted mindshare</b> (with rank fallback) determines your
-                share.
+                <b>weighted mindshare</b> determines your share of the pool.
               </li>
             </ul>
           </GlassPanel>

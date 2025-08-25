@@ -222,7 +222,7 @@ export default function ProjectPortalBTC() {
 
           <GlassPanel>
             <h3 className="text-sm font-medium tracking-wide text-white/80">
-              FDV Simulator
+              FDV
             </h3>
             <p className="mt-1 text-sm text-white/60">
               Drag to simulate token price and reward value.
@@ -292,8 +292,8 @@ export default function ProjectPortalBTC() {
                 <b>Creator</b> &gt; <b>Community</b>.
               </li>
               <li>
-                <span className="text-white/80">Distribution:</span> Mindshare
-                first; rank fallback with penalty.
+                <span className="text-white/80">Distribution:</span> Your{" "}
+                <b>weighted mindshare</b> determines your share of the pool.
               </li>
             </ul>
           </GlassPanel>
@@ -506,16 +506,6 @@ function CompareModal({ onClose, topicId, baseUser }) {
                     style={{ width: `${frenPct * 100}%` }}
                     title="Fren"
                   />
-                </div>
-                <div className="mt-2 flex justify-between text-xs text-white/80">
-                  <span>
-                    You: <b>{formatMoney(you?.worth ?? 0, 2)}</b> (
-                    {Math.round(youPct * 100)}%)
-                  </span>
-                  <span>
-                    Fren: <b>{formatMoney(friend?.worth ?? 0, 2)}</b> (
-                    {Math.round(frenPct * 100)}%)
-                  </span>
                 </div>
 
                 {/* Leader line */}
