@@ -229,7 +229,7 @@ export default function ProjectIrys() {
               disabled={!eligible}
               className={!eligible ? "opacity-60 cursor-not-allowed" : ""}
             >
-              Compare with Frens
+              Compare with Fren
             </NeonButton>
           </div>
         </div>
