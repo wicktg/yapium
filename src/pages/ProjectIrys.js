@@ -31,7 +31,7 @@ export default function ProjectIrys() {
       setStatus({ loading: true, error: null });
       try {
         const res = await fetch(
-          `https://gomtu.xyz/api/kaito/leaderboard-search?username=${encodeURIComponent(
+          `/api/kaito/leaderboard-search?username=${encodeURIComponent(
             username
           )}`
         );
