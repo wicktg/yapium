@@ -56,15 +56,11 @@ export default function UserDashboard() {
       try {
         const [statusRes, yapsRes] = await Promise.all([
           fetch(
-            `https://gomtu.xyz/api/kaito/user_status?username=${encodeURIComponent(
+            `/api/kaito/leaderboard-search?username=${encodeURIComponent(
               username
             )}`
           ),
-          fetch(
-            `https://gomtu.xyz/api/yap/open?username=${encodeURIComponent(
-              username
-            )}`
-          ),
+          fetch(`/api/yap/open?username=${encodeURIComponent(username)}`),
         ]);
 
         if (!statusRes.ok || !yapsRes.ok) {
