@@ -190,12 +190,6 @@ export default function ProjectIrys() {
                   Drag to simulate token price and reward value.
                 </p>
               </div>
-
-              {!eligible && !status.loading && (
-                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/60">
-                  Locked (not eligible)
-                </span>
-              )}
             </div>
 
             <div className={`mt-4 ${sliderDisabled ? "opacity-50" : ""}`}>
