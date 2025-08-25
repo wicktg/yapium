@@ -407,6 +407,12 @@ function CompareModal({ onClose, topicId, baseUser }) {
   const youPct = totalWorth > 0 ? (you?.worth || 0) / totalWorth : 0.5;
   const frenPct = 1 - youPct;
 
+  const leaderHandle =
+    (you &&
+      friend &&
+      (you.worth >= (friend.worth || 0) ? you.username : friend.username)) ||
+    (you ? you.username : friend?.username);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       <div
@@ -440,12 +446,9 @@ function CompareModal({ onClose, topicId, baseUser }) {
 
           {(you || friend) && (
             <>
-              {/* Side-by-side cards */}
+              {/* Side-by-side cards (match IRYS/MONAD styling) */}
               <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <GlassPanel highlight="orange">
-                  <div className="text-[11px] uppercase tracking-wider text-white/60">
-                    You
-                  </div>
                   <div className="text-sm font-semibold">
                     @{you?.username || baseUser.username}
                   </div>
@@ -463,9 +466,6 @@ function CompareModal({ onClose, topicId, baseUser }) {
                 </GlassPanel>
 
                 <GlassPanel>
-                  <div className="text-[11px] uppercase tracking-wider text-white/60">
-                    Fren
-                  </div>
                   <div className="text-sm font-semibold">
                     @
                     {friend?.username ||
@@ -485,43 +485,39 @@ function CompareModal({ onClose, topicId, baseUser }) {
                 </GlassPanel>
               </div>
 
-              {/* Head-to-head bar */}
+              {/* Head-to-head bar (dual color like other pages) */}
               <div className="mt-5">
                 <div className="text-xs text-white/60 mb-2">
-                  Head-to-head (by worth at current FDV)
+                  Head-to-head (by $ worth)
                 </div>
-                <div className="w-full h-3 rounded-full bg-white/5 ring-1 ring-white/10 overflow-hidden">
+                <div className="w-full h-3 rounded-full bg-white/5 ring-1 ring-white/10 overflow-hidden flex">
                   <div
                     className="h-full bg-[#FF7A29] transition-all duration-700"
                     style={{ width: `${youPct * 100}%` }}
                     title="You"
                   />
+                  <div
+                    className="h-full bg-[#22C55E] transition-all duration-700"
+                    style={{ width: `${frenPct * 100}%` }}
+                    title="Fren"
+                  />
                 </div>
-                <div className="mt-2 flex justify-between text-xs">
-                  <span className="text-white/80">
+                <div className="mt-2 flex justify-between text-xs text-white/80">
+                  <span>
                     You: <b>{formatMoney(you?.worth ?? 0, 2)}</b> (
                     {Math.round(youPct * 100)}%)
                   </span>
-                  <span className="text-white/80">
+                  <span>
                     Fren: <b>{formatMoney(friend?.worth ?? 0, 2)}</b> (
                     {Math.round(frenPct * 100)}%)
                   </span>
                 </div>
-              </div>
 
-              {/* Delta badge */}
-              <div className="mt-3 text-center text-sm">
-                {(you?.worth ?? 0) - (friend?.worth ?? 0) >= 0 ? (
-                  <span className="inline-flex items-center gap-2 rounded-full bg-[#22C55E]/10 text-[#22C55E] ring-1 ring-white/10 px-3 py-1">
-                    You’re ahead by{" "}
-                    {formatMoney((you?.worth ?? 0) - (friend?.worth ?? 0), 2)}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-2 rounded-full bg-[#EF4444]/10 text-[#EF4444] ring-1 ring-white/10 px-3 py-1">
-                    Behind by{" "}
-                    {formatMoney((friend?.worth ?? 0) - (you?.worth ?? 0), 2)}
-                  </span>
-                )}
+                {/* Leader line */}
+                <div className="mt-3 text-xs text-white/70">
+                  Leader:{" "}
+                  <span className="font-semibold">@{leaderHandle || "—"}</span>
+                </div>
               </div>
             </>
           )}
