@@ -7,32 +7,28 @@ import { ArrowLeft, Zap, Info, X } from "lucide-react";
  * - topic_id === "BILLIONS"
  * - Time weighting: 3M > 30D > 6M
  * - Leaderboards weighting: tier1 (Creator) > tier2 (Community). No "specific".
- * - Rewards pool: 10M $BLNS out of 1B total supply (assumed supply for price calc)
- * - Global mindshare pool: 365 (assumption)
- * - Eligibility: min rank ≤ 1000 AND positive weighted score
- *   - Prefer mindshare (if present) → mindshare-weighted score
- *   - If ALL mindshare are null/absent → fallback to rank-weighted score (reduced influence)
- * - FDV slider: $0 → $5B, price = FDV / totalSupply
+ * - Rewards pool: 10M $BLNS out of 1B total supply
+ * - Global mindshare pool: 450 (assumption)
+ * - Mindshare preferred; rank fallback (penalized)
  */
 
 const TOTAL_SUPPLY = 1_000_000_000; // 1B
 const REWARD_POOL = 10_000_000; // 10M BLNS
-const GLOBAL_MINDSHARE = 450; // assumed global mindshare
+const GLOBAL_MINDSHARE = 450;
 
-// Time weights: 3M > 30D > 6M
+// Time weights
 const TIME_WEIGHTS = { "3M": 1.0, "30D": 0.8, "6M": 0.5 };
-// Leaderboard weights (no "specific")
+// Leaderboard weights
 const TIER_WEIGHTS = { tier1: 1.0, tier2: 0.7 };
-// Included durations
+// Include durations
 const INCLUDED_DURATIONS = new Set(["3M", "30D", "6M"]);
 
-// Rank-fallback tuning: rank contribution is intentionally weaker than mindshare.
-const RANK_PENALTY = 0.35; // dampens rank vs mindshare
-// Map rank (1..1000) → base score in [0,1], rank 1 ≈ 1.0, rank 1000 ≈ 0.001
+// Rank fallback penalty (keeps rank weaker than mindshare)
+const RANK_PENALTY = 0.35;
 function rankToUnitScore(rank) {
   if (!Number.isFinite(rank) || rank <= 0) return 0;
   if (rank > 1000) return 0;
-  return (1001 - rank) / 1000; // 1.0 for #1, 0.001 for #1000
+  return (1001 - rank) / 1000; // 1.0 ... 0.001
 }
 
 export default function ProjectBillions() {
@@ -41,8 +37,9 @@ export default function ProjectBillions() {
 
   const [status, setStatus] = useState({ loading: true, error: null });
   const [entries, setEntries] = useState([]);
-  const [fdv, setFdv] = useState(1_000_000_000); // default $1B
+  const [fdv, setFdv] = useState(1_000_000_000); // $1B default
   const [showCard, setShowCard] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,28 +80,19 @@ export default function ProjectBillions() {
     };
   }, [username]);
 
-  // Weighted score (mindshare preferred; fallback to ranks if ALL mindshare are null/absent)
-  const {
-    weightedScore, // final score used for rewards
-    usedMindshare, // true if using mindshare; false if rank fallback
-    eligible,
-    bestRank,
-  } = useMemo(() => {
+  // Weighted score (mindshare preferred, falls back to rank w/ penalty)
+  const { weightedScore, eligible, bestRank } = useMemo(() => {
     if (!entries.length)
-      return {
-        weightedScore: 0,
-        usedMindshare: false,
-        eligible: false,
-        bestRank: null,
-      };
+      return { weightedScore: 0, eligible: false, bestRank: null };
 
-    let wm = 0; // mindshare-weighted
-    let minRank = Infinity;
+    let wm = 0; // mindshare
+    let wr = 0; // rank fallback
     let sawMindshare = false;
+    let minRank = Infinity;
 
     for (const e of entries) {
       const duration = e?.duration;
-      const tier = (e?.tier || "").toLowerCase(); // tier1 / tier2
+      const tier = (e?.tier || "").toLowerCase(); // tier1/tier2
       const ms =
         typeof e?.mindshare === "number" ? Math.max(0, e.mindshare) : null;
       const rank = typeof e?.rank === "number" ? e.rank : Infinity;
@@ -115,40 +103,17 @@ export default function ProjectBillions() {
       if (ms !== null) {
         sawMindshare = true;
         wm += ms * tWeight * tierWeight;
+      } else {
+        wr += rankToUnitScore(rank) * tWeight * tierWeight;
       }
       if (rank < minRank) minRank = rank;
     }
 
-    // Prefer mindshare if present and positive
-    if (sawMindshare && wm > 0) {
-      const isEligible = minRank <= 1000 && wm > 0;
-      return {
-        weightedScore: wm,
-        usedMindshare: true,
-        eligible: isEligible,
-        bestRank: isFinite(minRank) ? minRank : null,
-      };
-    }
+    const finalScore = sawMindshare && wm > 0 ? wm : wr * RANK_PENALTY;
+    const isEligible = isFinite(minRank) && minRank <= 1000 && finalScore > 0;
 
-    // Fallback to ranks (reduced influence)
-    let wr = 0;
-    for (const e of entries) {
-      const duration = e?.duration;
-      const tier = (e?.tier || "").toLowerCase();
-      const rank = typeof e?.rank === "number" ? e.rank : Infinity;
-
-      const tWeight = TIME_WEIGHTS[duration] ?? 0;
-      const tierWeight = TIER_WEIGHTS[tier] ?? 0;
-      const unit = rankToUnitScore(rank); // [0..1], 0 if > 1000
-
-      wr += unit * tWeight * tierWeight;
-    }
-    wr *= RANK_PENALTY;
-
-    const isEligible = isFinite(minRank) && minRank <= 1000 && wr > 0;
     return {
-      weightedScore: wr,
-      usedMindshare: false,
+      weightedScore: finalScore,
       eligible: isEligible,
       bestRank: isFinite(minRank) ? minRank : null,
     };
@@ -167,15 +132,13 @@ export default function ProjectBillions() {
     [tokensAwarded, tokenPrice]
   );
 
-  const sliderDisabled = !eligible;
-
-  // Tagline by worth
+  // Tagline
   const tagline = useMemo(() => {
     const w = Math.floor(rewardWorthUSD);
-    if (w >= 100_000) return "Time for a vacation"; // 6 figs
-    if (w >= 10_000) return "I cooked very hard"; // 5 figs
-    if (w >= 1_000) return "4 figures, who dis?"; // 4 figs
-    if (w >= 100) return "I printed a good bags"; // 3 figs
+    if (w >= 100_000) return "Time for a vacation";
+    if (w >= 10_000) return "I cooked very hard";
+    if (w >= 1_000) return "4 figures, who dis?";
+    if (w >= 100) return "I printed a good bags";
     return "We go again";
   }, [rewardWorthUSD]);
 
@@ -209,7 +172,7 @@ export default function ProjectBillions() {
       </header>
 
       <section className="relative z-10 mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 pb-14 pt-4 md:pt-6 lg:grid-cols-10">
-        {/* LEFT: Eligibility + Rewards (~60%) */}
+        {/* LEFT: Eligibility + Rewards */}
         <div className="lg:col-span-6 space-y-4">
           <GlassPanel highlight="orange">
             <div className="flex items-start justify-between gap-4">
@@ -254,11 +217,9 @@ export default function ProjectBillions() {
                   Drag to simulate token price and reward value.
                 </p>
               </div>
-
-             
             </div>
 
-            <div className={`mt-4 ${sliderDisabled ? "opacity-50" : ""}`}>
+            <div className={`mt-4 ${!eligible ? "opacity-50" : ""}`}>
               <input
                 type="range"
                 min={0}
@@ -267,7 +228,7 @@ export default function ProjectBillions() {
                 value={fdv}
                 onChange={(e) => setFdv(Number(e.target.value))}
                 className="w-full accent-[#FF7A29]"
-                disabled={sliderDisabled}
+                disabled={!eligible}
               />
               <div className="mt-2 flex justify-between text-xs text-white/60">
                 <span>$0</span>
@@ -285,10 +246,19 @@ export default function ProjectBillions() {
             >
               Generate Card
             </NeonButton>
+
+            {/* Spaced button */}
+            <NeonButton
+              onClick={() => setShowCompare(true)}
+              disabled={!eligible}
+              className={!eligible ? "opacity-60 cursor-not-allowed" : ""}
+            >
+              Compare with Fren
+            </NeonButton>
           </div>
         </div>
 
-        {/* RIGHT: How are the rewards calculated? (~40%) */}
+        {/* RIGHT: How calculated */}
         <div className="lg:col-span-4 space-y-4">
           <GlassPanel>
             <div className="mb-2 flex items-center gap-2">
@@ -301,25 +271,23 @@ export default function ProjectBillions() {
             <ul className="pl-5 text-sm text-white/70 space-y-2 list-disc">
               <li>
                 <span className="text-white/80">Total Supply:</span>{" "}
-                <b>1,000,000,000 $BLNS</b>.
+                <b>1,000,000,000 $BLNS</b>
               </li>
               <li>
-                <span className="text-white/80">
-                  Rewards Pool for Yappers Assumed:
-                </span>{" "}
-                <b>10,000,000 $BLNS</b>.
+                <span className="text-white/80">Rewards Pool:</span>{" "}
+                <b>10,000,000 $BLNS</b>
               </li>
               <li>
                 <span className="text-white/80">Timeframe Weightage:</span>{" "}
-                <b>3M</b> &gt; <b>30D</b> &gt; <b>6M</b>.
+                <b>3M</b> &gt; <b>30D</b> &gt; <b>6M</b>
               </li>
               <li>
                 <span className="text-white/80">Leaderboard Weightage:</span>{" "}
-                <b>Creator leaderboard</b> &gt; <b>Community leaderboard</b>.
+                <b>Creator</b> &gt; <b>Community</b>
               </li>
               <li>
-                <span className="text-white/80">Distribution:</span> Your{" "}
-                <b>weighted mindshare</b> determines your share of the pool.
+                <span className="text-white/80">Distribution:</span> Mindshare
+                first; rank fallback with penalty.
               </li>
             </ul>
           </GlassPanel>
@@ -342,7 +310,216 @@ export default function ProjectBillions() {
           tagline={tagline}
         />
       )}
+
+      {/* Compare Modal */}
+      {showCompare && (
+        <CompareModal
+          onClose={() => setShowCompare(false)}
+          topicId="BILLIONS"
+          baseUser={{ username, fdv }}
+        />
+      )}
     </main>
+  );
+}
+
+/* ——— Compare Modal ——— */
+
+function CompareModal({ onClose, topicId, baseUser }) {
+  const [fren, setFren] = useState("");
+  const [state, setState] = useState({
+    loading: false,
+    error: null,
+    you: null,
+    fren: null,
+  });
+
+  // compute tokens/worth for a username using BILLIONS rules
+  async function computeForUser(u) {
+    const res = await fetch(
+      `/api/kaito/leaderboard-search?username=${encodeURIComponent(u)}`
+    );
+    if (!res.ok) throw new Error("Network error");
+    const json = await res.json();
+    const data = Array.isArray(json?.data) ? json.data : [];
+
+    const filtered = data.filter(
+      (d) => d?.topic_id === topicId && INCLUDED_DURATIONS.has(d?.duration)
+    );
+
+    let wm = 0;
+    let wr = 0;
+    let sawMS = false;
+
+    for (const e of filtered) {
+      const duration = e?.duration;
+      const tier = (e?.tier || "").toLowerCase(); // tier1/tier2
+      const ms =
+        typeof e?.mindshare === "number" ? Math.max(0, e.mindshare) : null;
+      const rank = typeof e?.rank === "number" ? e.rank : Infinity;
+
+      const tWeight = TIME_WEIGHTS[duration] ?? 0;
+      const tierWeight = TIER_WEIGHTS[tier] ?? 0;
+
+      if (ms !== null) {
+        sawMS = true;
+        wm += ms * tWeight * tierWeight;
+      } else {
+        wr += rankToUnitScore(rank) * tWeight * tierWeight;
+      }
+    }
+
+    const finalScore = sawMS && wm > 0 ? wm : wr * RANK_PENALTY;
+    const tokens =
+      finalScore && GLOBAL_MINDSHARE > 0
+        ? Math.max(0, REWARD_POOL * (finalScore / GLOBAL_MINDSHARE))
+        : 0;
+
+    const price = baseUser.fdv > 0 ? baseUser.fdv / TOTAL_SUPPLY : 0;
+    const worth = tokens * price;
+
+    return {
+      username: u.replace(/^@/, ""),
+      tokens,
+      worth,
+    };
+  }
+
+  async function loadBoth() {
+    const me = await computeForUser(baseUser.username);
+    let fr = null;
+    if (fren.trim()) {
+      fr = await computeForUser(fren.trim());
+    }
+    return { me, fr };
+  }
+
+  async function handleCompare() {
+    try {
+      setState((s) => ({ ...s, loading: true, error: null }));
+      const { me, fr } = await loadBoth();
+      setState({ loading: false, error: null, you: me, fren: fr });
+    } catch (e) {
+      setState({ loading: false, error: "Failed to fetch comparison", you: null, fren: null });
+    }
+  }
+
+  const you = state.you;
+  const friend = state.fren;
+  const totalWorth = (you?.worth || 0) + (friend?.worth || 0);
+  const youPct = totalWorth > 0 ? (you?.worth || 0) / totalWorth : 0.5; // 50/50 if both 0
+  const frenPct = 1 - youPct;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-2xl rounded-2xl ring-1 ring-white/10 bg-[#0B0F14] overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="text-sm text-white/80 font-medium">Compare with Fren • BILLIONS</div>
+          <button onClick={onClose} className="text-white/70 hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="px-5 pb-5">
+          {/* Input row */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={fren}
+              onChange={(e) => setFren(e.target.value)}
+              placeholder="Enter friend's @username"
+              className="flex-1 rounded-lg bg-white/10 text-white px-3 py-2 text-sm ring-1 ring-white/10 focus:outline-none focus:ring-white/20"
+            />
+            <NeonButton onClick={handleCompare}>
+              {state.loading ? "Comparing..." : "Compare"}
+            </NeonButton>
+          </div>
+
+          {/* Results */}
+          {(you || friend) && (
+            <>
+              {/* Side-by-side cards */}
+              <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <GlassPanel highlight="orange">
+                  <div className="text-[11px] uppercase tracking-wider text-white/60">
+                    You
+                  </div>
+                  <div className="text-sm font-semibold">@{you?.username || baseUser.username}</div>
+                  <div className="mt-2 text-sm">
+                    Tokens: <b>{formatQty(you?.tokens ?? 0, 2)} $BLNS</b>
+                  </div>
+                  <div className="text-sm">
+                    Worth: <b>{formatMoney(you?.worth ?? 0, 2)}</b>
+                  </div>
+                </GlassPanel>
+
+                <GlassPanel>
+                  <div className="text-[11px] uppercase tracking-wider text-white/60">
+                    Fren
+                  </div>
+                  <div className="text-sm font-semibold">
+                    @{friend?.username || (fren?.trim() ? fren.replace(/^@/, "") : "—")}
+                  </div>
+                  <div className="mt-2 text-sm">
+                    Tokens: <b>{formatQty(friend?.tokens ?? 0, 2)} $BLNS</b>
+                  </div>
+                  <div className="text-sm">
+                    Worth: <b>{formatMoney(friend?.worth ?? 0, 2)}</b>
+                  </div>
+                </GlassPanel>
+              </div>
+
+              {/* Head-to-head bar */}
+              <div className="mt-5">
+                <div className="text-xs text-white/60 mb-2">Head-to-head (by worth at current FDV)</div>
+                <div className="w-full h-3 rounded-full bg-white/5 ring-1 ring-white/10 overflow-hidden">
+                  <div
+                    className="h-full bg-[#FF7A29] transition-all duration-700"
+                    style={{ width: `${youPct * 100}%` }}
+                    title="You"
+                  />
+                </div>
+                <div className="mt-2 flex justify-between text-xs">
+                  <span className="text-white/80">
+                    You: <b>{formatMoney(you?.worth ?? 0, 2)}</b> ({Math.round(youPct * 100)}%)
+                  </span>
+                  <span className="text-white/80">
+                    Fren: <b>{formatMoney(friend?.worth ?? 0, 2)}</b> ({Math.round(frenPct * 100)}%)
+                  </span>
+                </div>
+              </div>
+
+              {/* Delta badge */}
+              <div className="mt-3 text-center text-sm">
+                {((you?.worth ?? 0) - (friend?.worth ?? 0)) >= 0 ? (
+                  <span className="inline-flex items-center gap-2 rounded-full bg-[#22C55E]/10 text-[#22C55E] ring-1 ring-white/10 px-3 py-1">
+                    You’re ahead by {formatMoney((you?.worth ?? 0) - (friend?.worth ?? 0), 2)}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-2 rounded-full bg-[#EF4444]/10 text-[#EF4444] ring-1 ring-white/10 px-3 py-1">
+                    Behind by {formatMoney((friend?.worth ?? 0) - (you?.worth ?? 0), 2)}
+                  </span>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Empty state hint */}
+          {!you && !friend && !state.loading && (
+            <div className="mt-6 text-center text-sm text-white/60">
+              Enter a friend’s username and hit <b>Compare</b>.
+            </div>
+          )}
+
+          {state.error && (
+            <div className="mt-4 text-center text-[#EF4444] text-sm">
+              {state.error}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -381,10 +558,7 @@ function CardModal({ onClose, username, tokens, worth, fdv, tagline }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-2xl rounded-2xl ring-1 ring-white/10 bg-[#0B0F14] overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="text-sm text-white/70">Share Card Preview</div>
