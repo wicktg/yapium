@@ -11,8 +11,8 @@ import { ArrowLeft, Zap, Info, X } from "lucide-react";
  * - Time weighting: 3M > 30D > 6M
  * - Leaderboards weighting: Creator > Community
  * - Global mindshare pool (assumption): 400
- * - Eligibility: rank ≤ 1000 on any included board AND positive score
- *   - Prefer mindshare (if present)
+ * - Eligibility: appears on any included leaderboard (rank ≤ 1000) AND positive score
+ *   - Prefer mindshare (if present across any entry)
  *   - If ALL mindshare are null → fallback to rank (reduced influence)
  */
 
@@ -82,13 +82,18 @@ export default function ProjectBoundless() {
     };
   }, [username]);
 
-  // Weighted score (mindshare preferred, rank fallback if needed)
+  // Weighted score (mindshare preferred, rank fallback if ALL mindshare are missing)
   const { weightedScore, eligible, bestRank } = useMemo(() => {
     if (!entries.length)
       return { weightedScore: 0, eligible: false, bestRank: null };
 
-    let wm = 0;
-    let wr = 0;
+    // presence on any included leaderboard with rank ≤ 1000
+    const appearsOnLeaderboard = entries.some(
+      (e) => Number.isFinite(e?.rank) && e.rank <= 1000
+    );
+
+    let wm = 0; // mindshare-weighted sum
+    let wr = 0; // rank-weighted sum (only used when all mindshare are missing)
     let sawMindshare = false;
     let minRank = Infinity;
 
@@ -105,27 +110,29 @@ export default function ProjectBoundless() {
       if (ms !== null) {
         sawMindshare = true;
         wm += ms * tWeight * tierWeight;
-      } else {
-        wr += rankToUnitScore(rank) * tWeight * tierWeight;
       }
+      // For fallback path, we will use wr ONLY if sawMindshare === false
+      wr += rankToUnitScore(rank) * tWeight * tierWeight;
+
       if (rank < minRank) minRank = rank;
     }
 
     const finalScore = sawMindshare && wm > 0 ? wm : wr * RANK_PENALTY;
-    const isEligible = isFinite(minRank) && minRank <= 1000 && finalScore > 0;
+    const isEligible = appearsOnLeaderboard && finalScore > 0;
 
     return {
       weightedScore: finalScore,
       eligible: isEligible,
-      bestRank: isFinite(minRank) ? minRank : null,
+      bestRank: Number.isFinite(minRank) ? minRank : null,
     };
   }, [entries]);
 
-  // Rewards
+  // Rewards — strictly 0 if not eligible
   const tokensAwarded = useMemo(() => {
+    if (!eligible) return 0;
     if (!weightedScore || GLOBAL_MINDSHARE <= 0) return 0;
     return Math.max(0, REWARD_POOL * (weightedScore / GLOBAL_MINDSHARE));
-  }, [weightedScore]);
+  }, [eligible, weightedScore]);
 
   const tokenPrice = useMemo(() => (fdv > 0 ? fdv / TOTAL_SUPPLY : 0), [fdv]);
   const rewardWorthUSD = useMemo(
@@ -335,6 +342,11 @@ function CompareModal({ onClose, topicId, baseUser }) {
       (d) => d?.topic_id === topicId && INCLUDED_DURATIONS.has(d?.duration)
     );
 
+    // eligibility: appears anywhere rank ≤ 1000
+    const appearsOnLeaderboard = filtered.some(
+      (e) => Number.isFinite(e?.rank) && e.rank <= 1000
+    );
+
     let wm = 0;
     let wr = 0;
     let sawMS = false;
@@ -352,14 +364,15 @@ function CompareModal({ onClose, topicId, baseUser }) {
       if (ms !== null) {
         sawMS = true;
         wm += ms * tWeight * tierWeight;
-      } else {
-        wr += rankToUnitScore(rank) * tWeight * tierWeight;
       }
+      wr += rankToUnitScore(rank) * tWeight * tierWeight;
     }
 
     const finalScore = sawMS && wm > 0 ? wm : wr * RANK_PENALTY;
+    const eligible = appearsOnLeaderboard && finalScore > 0;
+
     const tokens =
-      finalScore && GLOBAL_MINDSHARE > 0
+      eligible && finalScore && GLOBAL_MINDSHARE > 0
         ? Math.max(0, REWARD_POOL * (finalScore / GLOBAL_MINDSHARE))
         : 0;
 
@@ -370,6 +383,7 @@ function CompareModal({ onClose, topicId, baseUser }) {
       username: u.replace(/^@/, ""),
       tokens,
       worth,
+      eligible,
     };
   }
 
@@ -443,6 +457,11 @@ function CompareModal({ onClose, topicId, baseUser }) {
                   <div className="text-sm">
                     Worth: <b>{formatMoney(you?.worth ?? 0, 2)}</b>
                   </div>
+                  {!you?.eligible && (
+                    <div className="mt-2 text-xs text-white/50">
+                      Not eligible — no rewards at this time.
+                    </div>
+                  )}
                 </GlassPanel>
 
                 <GlassPanel>
@@ -460,6 +479,11 @@ function CompareModal({ onClose, topicId, baseUser }) {
                   <div className="text-sm">
                     Worth: <b>{formatMoney(friend?.worth ?? 0, 2)}</b>
                   </div>
+                  {friend && !friend.eligible && (
+                    <div className="mt-2 text-xs text-white/50">
+                      Not eligible — no rewards at this time.
+                    </div>
+                  )}
                 </GlassPanel>
               </div>
 
