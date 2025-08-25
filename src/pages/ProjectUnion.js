@@ -8,7 +8,7 @@ import { ArrowLeft, Zap, Info, X } from "lucide-react";
  * - Durations used: 7D, 30D, 3M, 6M
  * - Leaderboards weighting: Specific > Community > Creator
  * - Time weighting (order): 3M > 30D > 7D > 6M
- * - Rewards pool: 75M $U out of 10B total supply (assumed supply for price calc)
+ * - Rewards pool: 75M $U out of 10B total supply
  * - Global combined score: 425 (assumption; proportion base)
  * - FDV slider: $0 → $5B, price = FDV / totalSupply
  */
@@ -42,6 +42,7 @@ export default function ProjectUnion() {
   const [entries, setEntries] = useState([]);
   const [fdv, setFdv] = useState(1_000_000_000); // default $1B
   const [showCard, setShowCard] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -186,7 +187,7 @@ export default function ProjectUnion() {
                 <div className="text-lg font-semibold">@{username}</div>
               </div>
               {status.loading ? (
-                <div className="h-6 w-32 animate-pulse rounded bg-white/10" />
+                <div className="h-6 w-32 animate-pulse rounded bg.white/10" />
               ) : (
                 <EligibilityPill eligible={eligible} bestRank={bestRank} />
               )}
@@ -213,7 +214,7 @@ export default function ProjectUnion() {
           <GlassPanel>
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-medium tracking-wide text-white/80">
+                <h3 className="text-sm font-medium tracking-wide text.white/80">
                   FDV Simulator
                 </h3>
                 <p className="mt-1 text-sm text-white/60">
@@ -241,6 +242,7 @@ export default function ProjectUnion() {
             </div>
           </GlassPanel>
 
+          {/* Action buttons */}
           <div className="flex flex-wrap gap-3">
             <NeonButton
               onClick={() => setShowCard(true)}
@@ -248,6 +250,14 @@ export default function ProjectUnion() {
               className={!eligible ? "opacity-60 cursor-not-allowed" : ""}
             >
               Generate Card
+            </NeonButton>
+
+            <NeonButton
+              onClick={() => setShowCompare(true)}
+              disabled={!eligible}
+              className={!eligible ? "opacity-60 cursor-not-allowed" : ""}
+            >
+              Compare with Fren
             </NeonButton>
           </div>
         </div>
@@ -273,7 +283,7 @@ export default function ProjectUnion() {
               </li>
               <li>
                 <span className="text-white/80">Timeframe Priority:</span>{" "}
-                <b>3M</b> &gt; <b>30D</b> &gt; <b>6M</b>.
+                <b>3M</b> &gt; <b>30D</b> &gt; <b>7D</b> &gt; <b>6M</b>.
               </li>
               <li>
                 <span className="text-white/80">Leaderboard Priority:</span>{" "}
@@ -281,7 +291,8 @@ export default function ProjectUnion() {
               </li>
               <li>
                 <span className="text-white/80">Distribution:</span> Your{" "}
-                <b>weighted mindshare</b> determines your share of the pool.
+                <b>weighted mindshare</b> (with rank fallback) determines your
+                share.
               </li>
             </ul>
           </GlassPanel>
@@ -304,7 +315,190 @@ export default function ProjectUnion() {
           tagline={tagline}
         />
       )}
+
+      {/* Compare Modal */}
+      {showCompare && (
+        <CompareModal
+          onClose={() => setShowCompare(false)}
+          baseUser={{ username, tokens: tokensAwarded, worth: rewardWorthUSD }}
+          fdv={fdv}
+        />
+      )}
     </main>
+  );
+}
+
+/* ——— Compare Modal ——— */
+
+function CompareModal({ onClose, baseUser, fdv }) {
+  const [fren, setFren] = useState("");
+  const [frenState, setFrenState] = useState({
+    loading: false,
+    error: null,
+    data: null,
+  });
+
+  async function handleCompare() {
+    if (!fren) return;
+    setFrenState({ loading: true, error: null, data: null });
+    try {
+      const res = await fetch(
+        `/api/kaito/leaderboard-search?username=${encodeURIComponent(fren)}`
+      );
+      if (!res.ok) throw new Error("Failed to fetch");
+      const json = await res.json();
+      const data = Array.isArray(json?.data) ? json.data : [];
+
+      // Only UNION + allowed durations
+      const filtered = data.filter(
+        (d) => d?.topic_id === "UNION" && INCLUDED_DURATIONS.has(d?.duration)
+      );
+
+      // Compute score with mindshare-preferred logic + rank fallback
+      let score = 0;
+      for (const e of filtered) {
+        const duration = e?.duration;
+        const tier = (e?.tier || "").toLowerCase();
+        const mindshare =
+          typeof e?.mindshare === "number" ? Math.max(0, e.mindshare) : null;
+        const rank = typeof e?.rank === "number" ? e.rank : Infinity;
+
+        const tWeight = TIME_WEIGHTS[duration] ?? 0;
+        const tierWeight = TIER_WEIGHTS[tier] ?? 0;
+
+        if (mindshare !== null) {
+          score += mindshare * tWeight * tierWeight;
+        } else {
+          const rScore = rankToScore(rank) * RANK_BACKOFF;
+          score += rScore * tWeight * tierWeight;
+        }
+      }
+
+      const tokens = score ? REWARD_POOL * (score / GLOBAL_TOTAL_SCORE) : 0;
+      const price = fdv > 0 ? fdv / TOTAL_SUPPLY : 0;
+      const worth = tokens * price;
+
+      setFrenState({
+        loading: false,
+        error: null,
+        data: { username: fren.replace(/^@/, ""), tokens, worth },
+      });
+    } catch (e) {
+      setFrenState({
+        loading: false,
+        error: e.message || "Something went wrong",
+        data: null,
+      });
+    }
+  }
+
+  const you = baseUser;
+  const friend = frenState.data;
+  const leader =
+    friend && friend.worth > you.worth ? friend.username : you.username;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative z-10 w-full max-w-2xl rounded-2xl ring-1 ring-white/10 bg-[#0B0F14] overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="text-sm text-white/80 font-medium">
+            Compare with Fren
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="p-5 pt-0">
+          {/* Input row */}
+          <div className="mt-3 flex gap-2">
+            <input
+              type="text"
+              value={fren}
+              onChange={(e) => setFren(e.target.value)}
+              placeholder="Enter friend's username (e.g. @satoshi)"
+              className="flex-1 rounded-lg bg-white/10 text-white px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-white/20"
+            />
+            <NeonButton onClick={handleCompare} disabled={frenState.loading}>
+              {frenState.loading ? "Comparing..." : "Compare"}
+            </NeonButton>
+          </div>
+
+          {frenState.error && (
+            <div className="mt-3 text-xs text-[#EF4444]">{frenState.error}</div>
+          )}
+
+          {/* Results */}
+          {friend && (
+            <>
+              <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <GlassPanel>
+                  <div className="text-sm font-semibold text-white/80 mb-2">
+                    @{you.username}
+                  </div>
+                  <div className="text-sm text-white/70">
+                    Tokens: <b>{formatQty(you.tokens, 2)} $U</b>
+                  </div>
+                  <div className="text-sm text-white/70">
+                    Worth: <b>{formatMoney(you.worth, 2)}</b>
+                  </div>
+                </GlassPanel>
+
+                <GlassPanel>
+                  <div className="text-sm font-semibold text-white/80 mb-2">
+                    @{friend.username}
+                  </div>
+                  <div className="text-sm text-white/70">
+                    Tokens: <b>{formatQty(friend.tokens, 2)} $U</b>
+                  </div>
+                  <div className="text-sm text-white/70">
+                    Worth: <b>{formatMoney(friend.worth, 2)}</b>
+                  </div>
+                </GlassPanel>
+              </div>
+
+              {/* Head-to-head bar */}
+              <div className="mt-5">
+                <div className="text-xs text-white/60 mb-2">
+                  Head-to-head (by $ worth)
+                </div>
+                <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden ring-1 ring-white/10">
+                  {(() => {
+                    const a = Math.max(0, you.worth);
+                    const b = Math.max(0, friend.worth);
+                    const total = a + b || 1;
+                    const youPct = (a / total) * 100;
+                    return (
+                      <div className="h-full flex">
+                        <div
+                          className="h-full bg-[#FF7A29]"
+                          style={{ width: `${youPct}%` }}
+                          title={`You ${youPct.toFixed(1)}%`}
+                        />
+                        <div
+                          className="h-full bg-[#22C55E]"
+                          style={{ width: `${100 - youPct}%` }}
+                          title={`${friend.username} ${(100 - youPct).toFixed(
+                            1
+                          )}%`}
+                        />
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div className="mt-2 text-xs text-white/70">
+                  Leader: <b>@{leader}</b>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -357,7 +551,7 @@ function CardModal({ onClose, username, tokens, worth, fdv, tagline }) {
 
         {/* Smaller preview */}
         <div className="bg-[#0B0F14] px-3 pb-4">
-          <div className="mx-auto w-[720px] max-w-full overflow-hidden rounded-xl ring-1 ring-white/10">
+          <div className="mx-auto w-[720px] max-w-full overflow-hidden rounded-XL ring-1 ring-white/10">
             <svg
               ref={svgRef}
               xmlns="http://www.w3.org/2000/svg"
