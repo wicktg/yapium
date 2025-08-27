@@ -10,7 +10,7 @@ import ProjectMonad from "./pages/ProjectMonad";
 import ProjectBillions from "./pages/ProjectBillions";
 import ProjectBoundless from "./pages/ProjectBoundless";
 import ProjectPortalBTC from "./pages/ProjectPortalBTC";
-import ProjectHana from "./pages/ProjectHana"
+import ProjectHana from "./pages/ProjectHana";
 import ProjectCysic from "./pages/ProjectCysic";
 import reportWebVitals from "./reportWebVitals";
 
@@ -24,6 +24,7 @@ const router = createBrowserRouter([
   { path: "/p/billions/:username", element: <ProjectBillions /> },
   { path: "/p/portaltobtc/:username", element: <ProjectPortalBTC /> },
   { path: "/p/cysic/:username", element: <ProjectCysic /> },
+  { path: "/p/hana/:username", element: <ProjectHana /> },
 ]);
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
