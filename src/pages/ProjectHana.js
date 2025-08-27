@@ -292,8 +292,8 @@ export default function ProjectHana() {
                 <b>Creator</b> &gt; <b>Community</b>.
               </li>
               <li>
-                <span className="text-white/80">Distribution:</span> Mindshare
-                first; rank fallback with penalty.
+                <span className="text-white/80">Distribution:</span> Your{" "}
+                <b>weighted mindshare</b> determines your share of the pool.
               </li>
             </ul>
           </GlassPanel>
@@ -441,7 +441,7 @@ function CompareModal({ onClose, topicId, baseUser }) {
               type="text"
               value={fren}
               onChange={(e) => setFren(e.target.value)}
-              placeholder="Enter friend's @username"
+              placeholder="Enter friend's @username (e.g. @satoshi)"
               className="flex-1 rounded-lg bg-white/10 text-white px-3 py-2 text-sm ring-1 ring-white/10 focus:outline-none focus:ring-white/20"
             />
             <NeonButton onClick={handleCompare}>
@@ -528,21 +528,6 @@ function CompareModal({ onClose, topicId, baseUser }) {
                 <div className="mt-3 text-xs text-white/80">
                   Leader: <b className="underline">{leaderHandle}</b>
                 </div>
-              </div>
-
-              {/* Delta badge */}
-              <div className="mt-3 text-center text-sm">
-                {(you?.worth ?? 0) - (friend?.worth ?? 0) >= 0 ? (
-                  <span className="inline-flex items-center gap-2 rounded-full bg-[#22C55E]/10 text-[#22C55E] ring-1 ring-white/10 px-3 py-1">
-                    You’re ahead by{" "}
-                    {formatMoney((you?.worth ?? 0) - (friend?.worth ?? 0), 2)}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-2 rounded-full bg-[#EF4444]/10 text-[#EF4444] ring-1 ring-white/10 px-3 py-1">
-                    Behind by{" "}
-                    {formatMoney((friend?.worth ?? 0) - (you?.worth ?? 0), 2)}
-                  </span>
-                )}
               </div>
             </>
           )}
