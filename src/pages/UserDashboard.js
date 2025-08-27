@@ -14,6 +14,7 @@ import cysicLogo from "../images/cysic.jpeg";
 import anomaLogo from "../images/anoma.jpeg";
 import oglabsLogo from "../images/oglabs.jpeg";
 import alloraLogo from "../images/allora.jpg";
+import hanaLogo from "../images/hana.jpeg";
 import megaethLogo from "../images/megaeth.jpeg";
 import katanaLogo from "../images/katana.jpg";
 
@@ -26,6 +27,7 @@ const PROJECTS = [
   { name: "Boundless", logo: boundlessLogo, slug: "boundless", status: "open" },
   { name: "Portal to BTC", logo: ptblogo, slug: "portaltobtc", status: "open" },
   { name: "Cysic", logo: cysicLogo, slug: "cysic", status: "open" },
+  { name: "Hana", logo: hanaLogo, slug: "hana", status: "open" },
   { name: "Abstract", logo: abstractLogo, slug: "abstract", status: "close" },
   { name: "Lombard", logo: lombardLogo, slug: "lombard", status: "close" },
   { name: "Anoma", logo: anomaLogo, slug: "anoma", status: "close" },

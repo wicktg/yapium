@@ -10,6 +10,7 @@ import ProjectMonad from "./pages/ProjectMonad";
 import ProjectBillions from "./pages/ProjectBillions";
 import ProjectBoundless from "./pages/ProjectBoundless";
 import ProjectPortalBTC from "./pages/ProjectPortalBTC";
+import ProjectHana from "./pages/ProjectHana"
 import ProjectCysic from "./pages/ProjectCysic";
 import reportWebVitals from "./reportWebVitals";
 
