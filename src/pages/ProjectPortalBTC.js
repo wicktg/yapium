@@ -240,7 +240,7 @@ export default function ProjectPortalBTC() {
               />
               <div className="mt-2 flex justify-between text-xs text-white/60">
                 <span>$0</span>
-               
+
                 <span>$5B</span>
               </div>
             </div>
@@ -441,7 +441,7 @@ function CompareModal({ onClose, topicId, baseUser }) {
               type="text"
               value={fren}
               onChange={(e) => setFren(e.target.value)}
-              placeholder="Enter friend's @username"
+              placeholder="Enter friend's username (e.g. @satoshi)"
               className="flex-1 rounded-lg bg-white/10 text-white px-3 py-2 text-sm ring-1 ring-white/10 focus:outline-none focus:ring-white/20"
             />
             <NeonButton onClick={handleCompare}>
@@ -515,12 +515,6 @@ function CompareModal({ onClose, topicId, baseUser }) {
                 </div>
               </div>
             </>
-          )}
-
-          {!you && !friend && !state.loading && (
-            <div className="mt-6 text-center text-sm text-white/60">
-              Enter a friend’s username and hit <b>Compare</b>.
-            </div>
           )}
 
           {state.error && (
