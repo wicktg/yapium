@@ -240,7 +240,6 @@ export default function ProjectHana() {
               />
               <div className="mt-2 flex justify-between text-xs text-white/60">
                 <span>$0</span>
-                <span>$1B</span>
                 <span>$5B</span>
               </div>
             </div>
@@ -531,8 +530,6 @@ function CompareModal({ onClose, topicId, baseUser }) {
               </div>
             </>
           )}
-
-          
 
           {state.error && (
             <div className="mt-4 text-center text-[#EF4444] text-sm">
